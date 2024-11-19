@@ -28,7 +28,7 @@ From this perspective, there are two potential solutions:
 In the assignment, its highlighted that *"Before investing
 into other tools, the company has decided to use Ansible to perform the required metric collection."* Further, Ansible is an open-source IT automation tool that simplifies tasks like configuration management, application deployment, and infrastructure provisioning using YAML-based Playbooks.
 
-The following are key areas for configuration and usage of Ansible:
+The following are key areas for configuration and usage of Ansible:  
 1.a. Write a Playbook to deploy a custom script for Disk Utilization Collection  
 --or--  
 1.b. Write a Playbook to deploy the CloudWatch Agent on EC2 instances to collect disk space metrics.  
@@ -40,34 +40,65 @@ Without diving even further, it becomes there are multiple architectural choices
 
 **There are probably many other options, but for sake of this assignment I will choose just one combination: CW Agent with SSM and not brainstoming on other possible option.**
 
-### SCRIPT
-The Ansible Playbook Structure:  
+### Explaination
+### The Ansible Playbook Structure:
 
-a. The playbook in playbook.yml defines roles for both Linux and Windows hosts.
-b. The when conditions are used to apply roles based on the OS family.
-c. Linux Tasks: The tasks in main.yml  install, configure, and start the CloudWatch Agent on Linux.
-d. Windows Tasks: The tasks in main.yml  download, install, configure, and start the CloudWatch Agent on Windows.
-e. Template Lookup: The lookup('template', 'cloudwatch-agent-config.json.j2') is used to fetch the configuration template.
+The Ansible playbook in this project is designed to automate the deployment and configuration of the CloudWatch Agent on EC2 instances across multiple AWS accounts. The playbook leverages AWS Organizations, CloudFormation StackSets, and Ansible's idempotent nature to ensure consistent and repeatable deployments. Below is a brief description of the key components and files in the scripts directory:
 
-### Architecture Diagram
+#### 1. `playbook.yml`
+This is the main Ansible playbook that orchestrates the entire deployment process. It includes the following key sections:
+- **Read Account IDs**: Reads AWS account IDs from the SSM Parameter Store.
+- **Assume Role and Run Tasks**: Assumes roles in each account and runs tasks.
+- **Create IAM Roles and Instance Profiles**: Creates IAM roles and instance profiles required for EC2 instances to push logs to CloudWatch.
+- **Attach IAM Roles to EC2 Instances**: Attaches the created IAM roles to the EC2 instances.
+- **Install and Configure CloudWatch Agent**: Installs and configures the CloudWatch Agent on both Linux and Windows EC2 instances.
 
+#### 2. `assume_role_and_run_tasks.yml`
+This file contains tasks that are included in the main playbook to assume roles in each AWS account and run specific tasks. Key tasks include:
+- **Assume Role**: Uses the `sts_assume_role` module to assume a role in the target account.
+- **Set AWS Credentials**: Sets the assumed role credentials as facts.
+- **Run Tasks Using SSM**: Executes commands on EC2 instances using AWS Systems Manager (SSM).
+
+#### 3. `linux_cloudwatch_agent/tasks/main.yml`
+This file defines the tasks to install and configure the CloudWatch Agent on Linux EC2 instances. Key tasks include:
+- **Install CloudWatch Agent**: Installs the CloudWatch Agent package.
+- **Create Configuration File**: Copies the CloudWatch Agent configuration file to the appropriate location.
+- **Start CloudWatch Agent**: Starts the CloudWatch Agent service.
+
+#### 4. `windows_cloudwatch_agent/tasks/main.yml`
+This file defines the tasks to install and configure the CloudWatch Agent on Windows EC2 instances. Key tasks include:
+- **Install CloudWatch Agent**: Installs the CloudWatch Agent MSI package.
+- **Create Configuration File**: Copies the CloudWatch Agent configuration file to the appropriate location.
+- **Start CloudWatch Agent**: Starts the CloudWatch Agent service using PowerShell.
+
+#### 5. `templates/cloudwatch-agent-config.json.j2`
+This is a Jinja2 template file for the CloudWatch Agent configuration. It defines the metrics and logs to be collected and specifies the centralized CloudWatch Logs account as the destination for the logs.
 
 ### Logical Steps
-1. Use AWS Organization, create centralized account for Automations. In this account:  
-a. Create EC2 to host Ansible Playbook. Ensure the IAM role attached to the EC2 instance running the playbook has the necessary permissions:*SSM Parameter Store Access, STS AssumeRole, EC2 Describe Instances, SSM Send Command*  
-b. Create SSM Parameter Store to store Account IDs.
-c. Make use of CloudFormation Stack Sets and deploy IAM required for cross account access in all existing accounts. Configure the StackSet to automatically deploy the stack to new accounts added to the organization.    
-d. Use ansible playbook to create roles for EC2 to send data to cloudwatch and attach these roles to ec2. *Alternatively, modify attached role to grant permisison to push logs to central cloudwatch.*
 
-2. Ansible are idempotent in nature, thus we can schedule to run the playbook everyday. 
+1. **Use AWS Organization**:
+   - Create a centralized account for automations.
+   - Create an EC2 instance to host the Ansible playbook. Ensure the IAM role attached to the EC2 instance has the necessary permissions: SSM Parameter Store Access, STS AssumeRole, EC2 Describe Instances, SSM Send Command.
+   - Create Centralized Account for monitoring and logging.
+
+2. **Create SSM Parameter Store**:
+   - Store the account IDs in the SSM Parameter Store.
+
+3. **Use CloudFormation StackSets**:
+   - Deploy IAM roles required for cross-account access in all existing accounts.
+   - Configure the StackSet to automatically deploy the stack to new accounts added to the organization.
+
+4. **Run Ansible Playbook**:
+   - Use the Ansible playbook in centralized automation account for fetching EC2 basis tags, create roles for EC2 instances to send data to CloudWatch and attach these roles to the instances.
+   - The same Ansible playbook can install cloudwatch agent.
+
+5. **Automating Addition of New AWS Accounts and EC2**:
+    - Use CloudWatch Events to trigger a Lambda function whenever a new account is added to the organization or an EC2 is created or tags of EC2 is modified.
+    - The Lambda function can assume the necessary roles and execute the Ansible playbook to configure the new account, ec2 instance
+    - Add new account information in SSM Parameter Store using the lambda function whwenever new account is added.
+    - These can be placed in AWS Step Functions for easy EDA.
 
 
 
 
-
-#### Automating addition of new AWS Accounts
-1. Use AWS CloudFormation StackSets to automate the creation of IAM roles in newly added accounts, streamlining integration. CloudFormation StackSets simplify the configuration of cross-accounts permissions and allow for automatic creation and deletion of resources [when accounts are joining or are removed from your Organization](https://aws.amazon.com/blogs/aws/new-use-aws-cloudformation-stacksets-for-multiple-accounts-in-an-aws-organization/). Goal is to give one or more of SSH access, Ability to create Delete keys, SSM access, Describe EC2.
-
-
-
-
+### Architecture Diagram

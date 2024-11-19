@@ -21,6 +21,4 @@
     targets:
       - Key: "tag:Env"
         Values: ["Prod"]
-    parameters:
-      commands: ["echo 'Hello from Ansible'"]
   delegate_to: localhost
