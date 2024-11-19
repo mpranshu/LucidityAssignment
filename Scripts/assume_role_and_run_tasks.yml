@@ -1,0 +1,26 @@
+---
+- name: Assume role in account {{ account_id }}
+  sts_assume_role:
+    role_arn: "arn:aws:iam::{{ account_id }}:role/AnsibleRole"
+    role_session_name: "AnsibleSession"
+  register: assumed_role
+
+- name: Set AWS credentials
+  set_fact:
+    aws_access_key: "{{ assumed_role.sts_creds.access_key }}"
+    aws_secret_key: "{{ assumed_role.sts_creds.secret_key }}"
+    aws_session_token: "{{ assumed_role.sts_creds.session_token }}"
+
+- name: Run tasks using SSM
+  amazon.aws.aws_ssm:
+    region: "us-east-1"
+    aws_access_key: "{{ aws_access_key }}"
+    aws_secret_key: "{{ aws_secret_key }}"
+    security_token: "{{ aws_session_token }}"
+    document_name: "AWS-RunShellScript"
+    targets:
+      - Key: "tag:Env"
+        Values: ["Prod"]
+    parameters:
+      commands: ["echo 'Hello from Ansible'"]
+  delegate_to: localhost

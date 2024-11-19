@@ -1,0 +1,14 @@
+---
+- name: Install CloudWatch Agent on Linux
+  yum:
+    name: amazon-cloudwatch-agent  # Install the CloudWatch agent package
+    state: present  # Ensure the package is installed
+
+- name: Create CloudWatch Agent configuration file on Linux
+  copy:
+    dest: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json  # Destination path for the config file
+    content: "{{ lookup('template', 'cloudwatch-agent-config.json.j2') }}"
+
+- name: Start CloudWatch Agent on Linux
+  command: /opt/aws/amazon-cloudwatch-agent/bin/start-amazon-cloudwatch-agent  # Start the CloudWatch agent
+  creates: /opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log  # Only run if the agent is not already running

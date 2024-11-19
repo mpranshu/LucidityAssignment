@@ -1,0 +1,42 @@
+{
+  "agent": {
+    "metrics_collection_interval": 60,
+    "run_as_user": "cwagent"
+  },
+  "metrics": {
+    "append_dimensions": {
+      "InstanceId": "${aws:InstanceId}"
+    },
+    "metrics_collected": {
+      "disk": {
+        "measurement": [
+          "used_percent"
+        ],
+        "metrics_collection_interval": 60,
+        "resources": [
+          "/"
+        ]
+      }
+    }
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/syslog",
+            "log_group_name": "arn:aws:logs:us-east-1:<CentralAccountID>:log-group:/aws/centralized-logs/syslog",
+            "log_stream_name": "{instance_id}"
+          },
+          {
+            "file_path": "/var/log/messages",
+            "log_group_name": "arn:aws:logs:us-east-1:<CentralAccountID>:log-group:/aws/centralized-logs/messages",
+            "log_stream_name": "{instance_id}"
+          }
+        ]
+      }
+    },
+    "log_stream_name": "{instance_id}",
+    "force_flush_interval": 5
+  }
+}

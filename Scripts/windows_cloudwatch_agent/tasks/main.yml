@@ -1,0 +1,19 @@
+---
+- name: Download CloudWatch Agent MSI for Windows
+  win_get_url:
+    url: https://s3.amazonaws.com/amazoncloudwatch-agent/windows/amd64/latest/amazon-cloudwatch-agent.msi  # URL to the CloudWatch Agent installer
+    dest: C:\Temp\amazon-cloudwatch-agent.msi  # Path to save the installer locally
+
+- name: Install CloudWatch Agent on Windows
+  win_package:
+    path: C:\Temp\amazon-cloudwatch-agent.msi  # Path to the downloaded installer
+    state: present  # Ensure the agent is installed
+
+- name: Create CloudWatch Agent configuration file on Windows
+  win_copy:
+    dest: C:\ProgramData\Amazon\AmazonCloudWatchAgent\amazon-cloudwatch-agent.json  # Configuration file location
+    content: "{{ lookup('template', 'cloudwatch-agent-config.json.j2') }}"  # Use the template to generate the configuration
+
+- name: Start CloudWatch Agent on Windows # Start the agent using the configuration file
+  win_shell: |
+    & "C:\Program Files\Amazon\AmazonCloudWatchAgent\amazon-cloudwatch-agent.exe" -config "C:\ProgramData\Amazon\AmazonCloudWatchAgent\amazon-cloudwatch-agent.json" -start

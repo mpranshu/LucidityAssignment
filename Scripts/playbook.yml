@@ -1,0 +1,106 @@
+---
+# Main playbook for installing and configuring the CloudWatch Agent on Linux and Windows hosts
+
+# Read all account IDs from AWS Systems Manager Parameter Store
+- name: Read account IDs from Parameter Store
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Get account IDs from Parameter Store
+      aws_ssm:
+        name: "/myapp/account_ids"
+        region: "us-east-1"
+      register: account_ids_param
+
+    - name: Set account IDs
+      set_fact:
+        account_ids: "{{ account_ids_param.value.split(',') }}"
+
+    - name: Assume role and run tasks on each account
+      include_tasks: assume_role_and_run_tasks.yml
+      with_items: "{{ account_ids }}"
+      loop_control:
+        loop_var: account_id
+
+# Create IAM roles and instance profiles
+- name: Create IAM roles and instance profiles
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create IAM role for EC2 instances
+      iam_role:
+        name: EC2CloudWatchRole
+        assume_role_policy_document: >
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "ec2.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          }
+        state: present
+
+    - name: Attach policy to IAM role
+      iam_policy:
+        name: CloudWatchLogsPolicy
+        policy_document: >
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "logs:CreateLogStream",
+                  "logs:PutLogEvents"
+                ],
+                "Resource": [
+                  "arn:aws:logs:us-east-1:<CentralAccountID>:log-group:/aws/centralized-logs/syslog:*",
+                  "arn:aws:logs:us-east-1:<CentralAccountID>:log-group:/aws/centralized-logs/messages:*"
+                ]
+              }
+            ]
+          }
+        state: present
+        role: EC2CloudWatchRole
+
+    - name: Create instance profile
+      iam_instance_profile:
+        name: EC2CloudWatchInstanceProfile
+        roles:
+          - EC2CloudWatchRole
+        state: present
+
+# Attach IAM roles to EC2 instances
+- name: Attach IAM roles to EC2 instances
+  hosts: tag_Env_Prod  # This will target all hosts with the tag Env: Prod
+  gather_facts: false
+  tasks:
+    - name: Attach IAM instance profile to EC2 instances
+      ec2:
+        instance_ids: "{{ item }}"
+        region: us-east-1
+        instance_profile_name: EC2CloudWatchInstanceProfile
+      with_items: "{{ ec2_instance_ids }}"
+      register: ec2_attach_results
+
+    - name: Debug EC2 attach results
+      debug:
+        var: ec2_attach_results
+
+# Install and Configure CloudWatch Agent on Linux and Windows
+- name: Install and Configure CloudWatch Agent on Linux and Windows
+  hosts: tag_Env_Prod  # This will target all hosts with the tag Env: Prod
+  become: true  # Use sudo to run tasks that require elevated privileges (root/admin access)
+  gather_facts: true  # Gather facts about the remote hosts
+
+  roles:
+    - role: linux_cloudwatch_agent  # Apply the linux_cloudwatch_agent role
+      when: ansible_facts['os_family'] == 'RedHat' or ansible_facts['os_family'] == 'Debian'
+
+    - role: windows_cloudwatch_agent  # Apply the windows_cloudwatch_agent role
+      when: ansible_facts['os_family'] == 'Windows'
