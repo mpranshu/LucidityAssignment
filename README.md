@@ -125,4 +125,8 @@ Trigger Ansible basis events
 
   [Can be done without Ansible for scalable solution](https://aws.amazon.com/blogs/compute/automating-amazon-ec2-windows-ebs-volumes-monitoring-and-creating-alarms/)
 ### Architecture Diagram
+The below represent account planning structure:
+![Account Structure](Architecture%20Diagram/Account%20Structure.png)
 
+High-level architecture:
+![High Level Architecture](Architecture%20Diagram/Architecture%20Diagram.png)
