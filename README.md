@@ -15,7 +15,7 @@ The goal is to design and implement a comprehensive solution to monitor disk uti
 
 #### Ansible Playbook Options:
 
-Option 1a: Write a playbook to deploy a custom script for disk utilization collection.
+Option 1a: Write a playbook to deploy a custom script for disk utilization collection.  
 Option 1b: Write a playbook to deploy the CloudWatch Agent on EC2 instances to collect disk space metrics.
 
 #### Provisioning Access for Ansible Node(assumed to be EC2):
@@ -125,3 +125,4 @@ Trigger Ansible basis events
 
   [Can be done without Ansible for scalable solution](https://aws.amazon.com/blogs/compute/automating-amazon-ec2-windows-ebs-volumes-monitoring-and-creating-alarms/)
 ### Architecture Diagram
+
